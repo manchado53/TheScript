@@ -1,5 +1,6 @@
-* .out
-
-.jpg
+*.png
+*.out
+*.jpg
 
 /soccer-env
+/__pycache__/
