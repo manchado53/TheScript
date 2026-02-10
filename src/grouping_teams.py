@@ -56,35 +56,13 @@ def extract_box_colors(results, img, chest_center_ratio=0.3, patch_ratio=0.4):
         colors.append(avg_color)
     return box_infos, np.array(colors)
 
-
-def extract_normalized_bottom_centers(results, image_shape):
+def extract_normalized_bottom_centers(boxes_xyxy, image_shape):
     """
-    Extract normalized bottom-center points from YOLO detection results.
-    
-    Args:
-        results: YOLO model results (e.g., results[0].boxes)
-        image_shape: Tuple (height, width) of the image
-
-    Returns:
-        normalized_pts: np.ndarray of shape (N, 2) with [x, y] bottom-center points normalized to [0, 1]
+    boxes_xyxy : (N,4) float32  [x1,y1,x2,y2] in pixel coords
+    Returns     : (N,2) float32 bottom-centre points in [0,1] range
     """
-    height, width = image_shape
-    bottom_points = []
-
-    for box in results:
-        x1, y1, x2, y2 = box  # (x1, y1, x2, y2)
-
-        # Normalize coordinates
-        x1 /= width
-        y1 /= height
-        x2 /= width
-        y2 /= height
-
-        # Bottom-center point
-        bottom_x = (x1 + x2) / 2
-        bottom_y = y2
-
-        bottom_points.append([bottom_x, bottom_y])
-
-    normalized_pts = np.array(bottom_points, dtype=np.float32)
-    return normalized_pts
+    im_h, im_w = image_shape
+    boxes = boxes_xyxy.astype(np.float32)
+    cx = (boxes[:, 0] + boxes[:, 2]) * 0.5 / im_w
+    cy =  boxes[:, 3]                / im_h
+    return np.column_stack((cx, cy))

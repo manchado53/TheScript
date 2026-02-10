@@ -1,0 +1,10 @@
+opencv-python
+numpy
+tensorflow
+scikit-learn
+matplotlib
+albumentations
+seaborn
+deprecation
+pickle5 
+keras-tuner

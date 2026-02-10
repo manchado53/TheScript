@@ -42,11 +42,12 @@ import os
 PATH = "/data/ai_club/SoccerStats2024/key_points"
 # PATH = "./data"  # for Jonny local
 LABELS_JSON = "Labels2ndDataSetVisited.json"
-TARGET_SIZE = (710, 400)
+TARGET_SIZE = (1280,720)
 # TARGET_SIZE = (710 // 5, 400 // 5)
 RADIUS = 5
 
-viets_field_img = "./viets field.PNG"
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+viets_field_img = os.path.join(_REPO_ROOT, "assets", "viets field.PNG")
 
 WIDTH_FIELD = 63.74
 LENGTH_FIELD = 107.79
@@ -819,7 +820,7 @@ def compute_homography_mae_over_dataset(X, y_pred_vis, y_pred_xy, dest_keypoints
 
 
 def compute_projection_error_over_dataset(
-    X, y_pred_vis, y_pred_xy, y_gt_vis, y_gt_xy, image_size=(710, 400), num_samples=2500
+    X, y_pred_vis, y_pred_xy, y_gt_vis, y_gt_xy, image_size=TARGET_SIZE, num_samples=2500
 ):
 
     scale_x, scale_y = get_scale_factors()

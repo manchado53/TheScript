@@ -1,13 +1,23 @@
+# Images
 *.png
-*.out
 *.jpg
 
-/soccer-venv/
-/__pycache__/
-/keypoint-msoe-1/
-/keypoint-msoe-2/
-/keypoint-msoe-3/
-/keypoint-msoe-4/
-/keypoint-msoe-6/
-/runs
+# SLURM logs
+*.out
 
+# Python
+__pycache__/
+
+# Virtual environment
+/soccer-venv/
+
+# Training data & outputs
+/data/
+/runs/
+/weights/
+/logs/
+
+# Misc
+/model_dir/
+/UR-RL/
+.ipynb_checkpoints/
