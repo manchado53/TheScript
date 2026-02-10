@@ -1,8 +1,23 @@
-# TheScript
+# TheScript (Rosco AI)
 
-A computer vision pipeline for real-time soccer match analytics. TheScript detects field landmarks from broadcast video, computes a homography to map camera coordinates onto a 2D field model, and then tracks per-player speed, distance, ball possession, and zone occupancy throughout the match.
+A computer vision pipeline for real-time soccer match analytics, built by Tanner Selio and Adrian Manchado to assist MSOE's men's soccer coach, Rob Harrington, with data-driven insights from game footage. Using only a single camera setup and no expensive hardware, Rosco AI brings professional-level sports analytics to a D3 soccer program — detecting players and the ball, tracking them across frames, mapping their positions onto a real-world field model, and computing per-player and per-team metrics.
+
+## Demos
+
+- [Annotated match video with player speed, distance, and possession overlays](https://www.youtube.com/watch?v=HKj34-95-PM)
+- [2D bird's-eye field projection with real-time player positions](https://www.youtube.com/watch?v=loeXq97BnCw)
+- [Full presentation: AI-Driven Soccer Analysis Using Computer Vision](https://www.youtube.com/watch?v=UKSFIYSSHr8&t=52s)
 
 ## What We Built
+
+### Player Detection & Team Classification
+**YOLO** (You Only Look Once) detects players in each frame by identifying pixel patterns through convolutional neural networks. Teams are differentiated by analyzing jersey colors — pixel color averaging and **K-Means clustering** group similar colors to separate teams. Outlier colors (e.g., bright yellow) enable automatic detection of referees.
+
+### Player Tracking
+YOLO operates on single frames without memory, so **SAM 2** (Segment Anything Model 2) is used to track players across frames. SAM 2 maintains a rolling memory of past frames to link player appearances and locations, assigning each player a unique ID for continuous tracking. When a player leaves and re-enters the frame, YOLO re-prompts SAM 2 to recover their identity. Occlusions (players overlapping) are detected via IOU overlap and handled by re-prompting SAM 2 on affected frames.
+
+### Ball Detection & Tracking
+YOLO also detects the ball, which is challenging due to its small size, high speed, and frequent occlusions. When the ball is not visible, a **Kalman filter** predicts its position based on velocity and trajectory, maintaining continuous ball tracking even through occluded frames.
 
 ### Field Keypoint Detection
 We trained a **YOLOv8x-pose** model to detect 12 key landmarks on a soccer field (center circle edges, midfield line intersections, penalty-box D-line intersections, etc.). Training data was annotated across 6 iterative dataset versions on [Roboflow](https://universe.roboflow.com/manchado53/keypoint-msoe/dataset/6) using Label Studio and converted to COCO/YOLO format. We also built a custom **CNN baseline** in TensorFlow/Keras with dual outputs (keypoint visibility classification + coordinate regression) to compare approaches.
@@ -13,12 +28,12 @@ Before running keypoint inference, each frame is converted to HSV color space an
 ### Homography & Coordinate Transformation
 Predicted keypoints in camera-pixel space are matched to their known real-world positions on a FIFA-standard field (107.79 m x 63.74 m). A homography matrix is computed via `cv2.findHomography` and **exponentially smoothed** (alpha = 0.8) across frames to avoid jitter. This matrix transforms any 2D pixel coordinate (player, ball) into metric field coordinates.
 
-### Player Tracking & Analytics
-Using pre-computed bounding boxes (from a separate detection/tracking step), the pipeline:
-- **Identifies teams** via a player-to-team mapping with color assignments (white / red / yellow for referees)
-- **Calculates speed** (m/s) from consecutive transformed positions
-- **Accumulates total distance** traveled per player
-- **Detects off-ball runs** (high-speed movement without possession)
+### Player Analytics
+Using the bounding boxes from YOLO + SAM 2 and the homography-transformed field coordinates, the pipeline computes:
+- **Speed** (m/s) from consecutive transformed positions
+- **Total distance** traveled per player
+- **Off-ball runs** (high-speed movement without possession)
+- **Team identification** via color clustering with per-player color assignments
 
 ### Ball Possession Analysis
 A `PossessionTracker` divides the field into a 3x3 grid of zones. Each frame, the closest player to the ball (within a threshold radius) is credited with possession. The system outputs per-team possession percentages both overall and per zone.
@@ -86,25 +101,30 @@ TheScript/
 ```
 Video Frame
     │
-    ├─► HSV white-line enhancement
+    ├─► YOLO detection ──► Player bounding boxes ──► SAM 2 tracking (with memory)
+    │                                                     │
+    ├─► YOLO detection ──► Ball position ──► Kalman filter (when occluded)
+    │                                             │
+    ├─► HSV white-line enhancement                │
+    │       │                                     │
+    │       ▼                                     │
+    │   YOLOv8-pose inference                     │
+    │       │                                     │
+    │       ▼                                     │
+    │   12 field keypoints + visibility           │
+    │       │                                     │
+    │       ▼                                     ▼
+    │   Homography (smoothed) ◄──────── Player/ball positions
     │       │
     │       ▼
-    │   YOLOv8-pose inference ──► 12 field keypoints + visibility
-    │                                     │
-    │                                     ▼
-    │                           Homography computation (smoothed)
-    │                                     │
-    ▼                                     ▼
-Bounding boxes ──► Normalize positions ──► Perspective transform to field coords
-                                                │
-                          ┌─────────────────────┼─────────────────────┐
-                          ▼                     ▼                     ▼
-                   Speed/Distance        Ball Possession       Zone Occupancy
-                    per player            by team/zone          by team/third
-                          │                     │                     │
-                          └─────────────────────┼─────────────────────┘
-                                                ▼
-                                    Annotated output video
+    │   Perspective transform to field coords
+    │       │
+    │       ├──► Speed / Distance per player
+    │       ├──► Ball Possession by team & zone
+    │       └──► Zone Occupancy by team & third
+    │                     │
+    ▼                     ▼
+         Annotated output video
 ```
 
 ## Technologies
@@ -112,11 +132,13 @@ Bounding boxes ──► Normalize positions ──► Perspective transform to 
 | Category | Tools |
 |----------|-------|
 | Object Detection & Pose | YOLOv8 (Ultralytics) |
+| Player Tracking | SAM 2 (Segment Anything Model 2) |
+| Ball Trajectory Prediction | Kalman Filter |
 | Deep Learning | TensorFlow / Keras |
 | Computer Vision | OpenCV |
 | Data Augmentation | Albumentations |
 | Annotation | Label Studio, Roboflow |
-| Clustering | scikit-learn (K-Means) |
+| Team Clustering | scikit-learn (K-Means) |
 | Visualization | Matplotlib, Seaborn |
 | Compute | MSOE Rosie supercomputer (SLURM, NVIDIA V100 / T4 / DGX H100) |
 
@@ -161,10 +183,10 @@ Or run directly:
 python src/main.py
 ```
 
-The pipeline expects:
+The analytics pipeline (`src/main.py`) expects:
 - A video file (e.g., `30SecondsAurora.mp4`)
-- Pre-computed player bounding boxes (pickle file)
-- Pre-computed ball positions (pickle file)
+- Player bounding boxes from YOLO + SAM 2 (serialized as pickle)
+- Ball positions from YOLO + Kalman filter (serialized as pickle)
 
 ## Notebooks
 
